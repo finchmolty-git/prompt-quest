@@ -3,137 +3,315 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1" />
-  <title>Prompt Quest</title>
+  <title>Prompt Quest v2</title>
   <style>
-    :root{--bg:#0f172a;--card:#111827;--muted:#94a3b8;--ok:#22c55e;--bad:#ef4444;--accent:#38bdf8}
-    *{box-sizing:border-box} body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:linear-gradient(180deg,#020617,#0f172a);color:#e5e7eb}
-    .wrap{max-width:520px;margin:0 auto;min-height:100dvh;padding:14px;display:flex;flex-direction:column;gap:12px}
-    .card{background:rgba(17,24,39,.9);border:1px solid #1f2937;border-radius:16px;padding:14px}
-    h1{font-size:1.2rem;margin:.2rem 0}.muted{color:var(--muted)}
-    .goal{font-weight:700;font-size:1rem;line-height:1.3}
-    .opt{width:100%;text-align:left;padding:12px;border-radius:12px;border:1px solid #334155;background:#0b1222;color:#e5e7eb;margin:8px 0;cursor:pointer}
+    :root{
+      --bg:#020617; --card:#0f172a; --line:#243042; --text:#e2e8f0; --muted:#94a3b8;
+      --ok:#22c55e; --warn:#f59e0b; --bad:#ef4444; --accent:#38bdf8;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;background:linear-gradient(180deg,#020617,#0b1220);font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:var(--text)}
+    .wrap{max-width:560px;margin:0 auto;min-height:100dvh;padding:12px;display:flex;flex-direction:column;gap:12px}
+    .row{display:flex;gap:8px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+    .pill{padding:6px 10px;border:1px solid var(--line);background:#0b1222;border-radius:999px;font-size:.82rem}
+    .card{background:rgba(15,23,42,.92);border:1px solid var(--line);border-radius:16px;padding:14px}
+    h1{margin:.1rem 0 .4rem;font-size:1.15rem}
+    .muted{color:var(--muted)}
+    .goal{font-size:1rem;line-height:1.35;font-weight:700}
+    .opt{width:100%;text-align:left;border:1px solid #324152;background:#0a1120;color:var(--text);border-radius:12px;padding:11px;margin-top:8px;cursor:pointer;line-height:1.35}
     .opt:active{transform:scale(.99)}
-    .opt.good{border-color:var(--ok)} .opt.bad{border-color:var(--bad)}
-    .row{display:flex;justify-content:space-between;gap:10px}
-    .pill{background:#0b1222;border:1px solid #334155;border-radius:999px;padding:6px 10px;font-size:.82rem}
-    #why{font-size:.94rem;line-height:1.35}
-    .btn{background:var(--accent);color:#001018;border:0;border-radius:12px;padding:11px 12px;font-weight:700;width:100%}
-    .center{text-align:center}
+    .opt.good{border-color:var(--ok);box-shadow:0 0 0 1px color-mix(in srgb, var(--ok) 50%, transparent)}
+    .opt.ok{border-color:var(--warn)}
+    .opt.bad{border-color:var(--bad)}
+    .btn{border:0;border-radius:12px;background:var(--accent);color:#03121a;padding:11px 12px;font-weight:700;width:100%}
+    .btn.secondary{background:#1e293b;color:var(--text);border:1px solid #334155}
+    #feedback{margin-top:10px;font-size:.92rem;line-height:1.35}
+    .grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+    .mini{font-size:.8rem}
   </style>
 </head>
 <body>
   <div class="wrap">
     <div class="row">
-      <div class="pill">⏱️ <span id="time">60</span>s</div>
-      <div class="pill">⭐ Score: <span id="score">0</span></div>
-      <div class="pill">🔥 Streak: <span id="streak">0</span></div>
+      <div class="pill">⏱ <span id="time">75</span>s</div>
+      <div class="pill">⭐ <span id="score">0</span></div>
+      <div class="pill">🔥 <span id="streak">0</span></div>
+      <div class="pill">🎯 <span id="round">1</span></div>
     </div>
 
-    <div class="card" id="play">
-      <h1>Prompt Quest</h1>
-      <div class="muted">Tap the best prompt for the goal. Fast + fun prompt engineering practice.</div>
-      <hr style="border-color:#1f2937;margin:12px 0">
+    <div class="card">
+      <div class="row">
+        <h1>Prompt Quest v2</h1>
+        <select id="difficulty" class="pill" style="background:#0b1222;color:var(--text)">
+          <option value="easy">Beginner</option>
+          <option value="pro" selected>Pro</option>
+          <option value="evil">Evil</option>
+        </select>
+      </div>
+      <div class="muted">Dynamic rounds. Choices are intentionally close. Pick the <b>best</b> prompt, not just “okay”.</div>
+    </div>
+
+    <div class="card" id="playCard">
       <div class="goal" id="goal"></div>
       <div id="options"></div>
-      <div id="why" class="muted"></div>
-      <button class="btn" id="next" style="display:none">Next Round</button>
+      <div id="feedback" class="muted"></div>
+      <button id="next" class="btn" style="display:none;margin-top:10px">Next Round</button>
     </div>
 
-    <div class="card center" id="end" style="display:none">
+    <div class="card" id="endCard" style="display:none;text-align:center">
       <h1>Round Complete 🎉</h1>
-      <p>You scored <b id="finalScore"></b> points.</p>
-      <p class="muted" id="tip"></p>
-      <button class="btn" id="restart">Play Again</button>
+      <p>You scored <b id="final"></b></p>
+      <p class="muted" id="summary"></p>
+      <div class="grid">
+        <button id="restart" class="btn">Play Again</button>
+        <button id="copy" class="btn secondary">Copy Score</button>
+      </div>
     </div>
   </div>
 
-  <script>
-  const rounds = [
-    {
-      goal:"Get a 3-day Tokyo itinerary under $300 (food + transport).",
-      options:[
-        {t:"Plan a Tokyo trip.",ok:false,why:"Too vague. No budget or structure constraints."},
-        {t:"Act as a budget travel planner. Create a 3-day Tokyo itinerary under $300 total for food + transport. Return a day-by-day table with estimated costs and one free activity per day.",ok:true,why:"Excellent: role + budget + output format + constraints."},
-        {t:"Give me luxury ideas for Japan.",ok:false,why:"Opposite of the budget goal."}
-      ]
-    },
-    {
-      goal:"Summarize a long article for a 12-year-old in 5 bullets.",
-      options:[
-        {t:"Summarize this.",ok:false,why:"Missing audience and format requirements."},
-        {t:"Read the article below. Explain it for a 12-year-old using exactly 5 bullet points and one real-world example.",ok:true,why:"Audience, structure, and clarity constraints are strong."},
-        {t:"Write a graduate-level abstract.",ok:false,why:"Wrong audience."}
-      ]
-    },
-    {
-      goal:"Create interview questions for a junior frontend role.",
-      options:[
-        {t:"Give me interview questions.",ok:false,why:"No role level or focus."},
-        {t:"Generate 10 interview questions for a junior frontend developer. Split into HTML/CSS, JavaScript, and debugging. Include what a good answer should contain.",ok:true,why:"Specific role, categories, and scoring aid."},
-        {t:"Ask impossible trick questions.",ok:false,why:"Not aligned with fair junior interview prep."}
-      ]
-    },
-    {
-      goal:"Draft a polite customer refund reply in 120 words max.",
-      options:[
-        {t:"Reply to customer.",ok:false,why:"No tone, length, or policy context."},
-        {t:"Write a polite refund response email under 120 words. Acknowledge frustration, confirm refund timeline (3-5 days), and include a support contact line.",ok:true,why:"Tone + length + required details = reliable output."},
-        {t:"Refuse refund aggressively.",ok:false,why:"Wrong tone and likely policy violation."}
-      ]
-    },
-    {
-      goal:"Turn meeting notes into clear action items.",
-      options:[
-        {t:"Organize these notes.",ok:false,why:"No required output schema."},
-        {t:"From the notes below, extract action items in a table with Owner, Task, Deadline, and Priority. If missing, mark as TBD.",ok:true,why:"Explicit schema leads to usable output."},
-        {t:"Rewrite this as a poem.",ok:false,why:"Not relevant to the goal."}
-      ]
-    }
-  ];
+<script>
+const templates = [
+  {
+    task: "plan a {duration}-day trip to {city} under {budget}",
+    slots: {duration:[2,3,4], city:["Tokyo","Lisbon","Seoul","Istanbul"], budget:["$250","$350","$500"]},
+    must: ["budget", "day-by-day", "table format", "free activity each day"],
+    domain:"travel"
+  },
+  {
+    task: "summarize this {docType} for a {audience} in exactly {count} bullet points",
+    slots:{docType:["article","report","policy memo"], audience:["12-year-old","busy manager","new hire"], count:[4,5,6]},
+    must:["audience", "exact bullet count", "plain language"],
+    domain:"summarization"
+  },
+  {
+    task: "draft a {tone} refund reply under {limit} words with {policy}",
+    slots:{tone:["polite","empathetic","professional"], limit:[90,120,140], policy:["3-5 business days","instant refund not available","escalation path"]},
+    must:["tone", "word limit", "timeline", "next step"],
+    domain:"support"
+  },
+  {
+    task: "generate interview questions for a {level} {role} role",
+    slots:{level:["junior","mid-level"], role:["frontend","backend","data" ]},
+    must:["categories", "difficulty balance", "evaluation rubric"],
+    domain:"hiring"
+  },
+  {
+    task: "convert meeting notes into action items with owners and deadlines",
+    slots:{},
+    must:["owner", "deadline", "priority", "TBD handling"],
+    domain:"productivity"
+  }
+];
 
-  let score=0, streak=0, i=0, t=60, timer=null;
-  const el = id => document.getElementById(id);
+const extras = {
+  structure:[
+    "Return results as a markdown table.",
+    "Use JSON schema with stable keys.",
+    "Format as numbered steps.",
+    "Provide a concise checklist."
+  ],
+  quality:[
+    "If assumptions are missing, ask up to 2 clarifying questions first.",
+    "State assumptions explicitly before output.",
+    "Include one realistic edge case.",
+    "Avoid hallucinated facts; mark uncertainty clearly."
+  ],
+  style:[
+    "Keep language plain and direct.",
+    "Use concise, actionable wording.",
+    "Avoid jargon unless required.",
+    "Keep output skimmable on mobile."
+  ]
+};
 
-  function shuffle(a){ return [...a].sort(()=>Math.random()-0.5); }
-  function render(){
-    const r = rounds[i % rounds.length];
-    el('goal').textContent = `Goal ${i+1}: ${r.goal}`;
-    el('why').textContent = '';
-    el('next').style.display='none';
-    const opts = shuffle(r.options).map((o,idx)=>`<button class="opt" data-ok="${o.ok}" data-why="${o.why.replace(/"/g,'&quot;')}">${o.t}</button>`).join('');
-    el('options').innerHTML = opts;
-    [...document.querySelectorAll('.opt')].forEach(btn=>btn.onclick=()=>pick(btn));
+function pick(a){ return a[Math.floor(Math.random()*a.length)]; }
+function fill(task, slots){
+  return task.replace(/\{(.*?)\}/g, (_,k)=> Array.isArray(slots[k]) ? pick(slots[k]) : `{${k}}`);
+}
+function shuffle(arr){ return [...arr].sort(()=>Math.random()-.5); }
+
+function scorePrompt(text, target, mode='pro'){
+  const t = text.toLowerCase();
+  let s = 0;
+  const signals = [];
+
+  // Core signal buckets
+  if (/(act as|you are|as a)/.test(t)) { s += 6; signals.push("role"); }
+  if (/(exactly|under|at most|no more than|must)/.test(t)) { s += 10; signals.push("constraints"); }
+  if (/(table|json|bullet|numbered|schema|format)/.test(t)) { s += 10; signals.push("output format"); }
+  if (/(audience|12-year-old|manager|beginner|tone|professional|empathetic)/.test(t)) { s += 8; signals.push("audience/tone"); }
+  if (/(assumption|clarifying question|uncertainty|edge case|cite|sources?)/.test(t)) { s += 8; signals.push("quality controls"); }
+  if (text.length > 65) s += 4;
+
+  // target-specific must-have signals
+  const mustMap = {
+    "budget":"budget|\$|cost",
+    "day-by-day":"day|itinerary",
+    "table format":"table",
+    "free activity each day":"free activity|free",
+    "exact bullet count":"exactly|bullet",
+    "plain language":"plain|simple",
+    "word limit":"under|words|at most",
+    "timeline":"day|business days|timeline",
+    "next step":"contact|next step|support",
+    "categories":"category|split",
+    "difficulty balance":"easy|medium|hard|balanced",
+    "evaluation rubric":"rubric|good answer|scoring",
+    "owner":"owner",
+    "deadline":"deadline|due",
+    "priority":"priority",
+    "TBD handling":"tbd|if missing"
+  };
+
+  for (const m of target.must) {
+    const r = new RegExp(mustMap[m] || m, 'i');
+    if (r.test(text)) s += 6;
+    else s -= 4;
   }
 
-  function pick(btn){
-    const ok = btn.dataset.ok==='true';
-    const why = btn.dataset.why;
-    [...document.querySelectorAll('.opt')].forEach(b=>b.disabled=true);
-    btn.classList.add(ok?'good':'bad');
-    if(ok){ score += 10 + Math.min(streak,5); streak++; }
-    else { score = Math.max(0, score-3); streak=0; }
-    el('score').textContent = score; el('streak').textContent=streak;
-    el('why').textContent = (ok?"✅ Nice pick. ":"❌ Not ideal. ") + why;
-    el('next').style.display='block';
+  // penalties
+  if (/^\s*(do|make|write|plan|summarize)\b.{0,20}[.!]?\s*$/i.test(text.trim())) s -= 14; // ultra vague
+  if (/(ignore previous|bypass|just guess|make up)/i.test(t)) s -= 12;
+
+  // difficulty scaling
+  if (mode==='easy') s = Math.round(s*0.95);
+  if (mode==='evil') s = Math.round(s*1.08) - 3;
+
+  return {score: Math.max(0,s), signals};
+}
+
+function buildRound(mode='pro'){
+  const target = pick(templates);
+  const goal = fill(target.task, target.slots);
+
+  // Build three candidate prompts with close quality
+  const baseRole = pick(["Act as an expert assistant.", "You are a practical assistant.", "Act as a helpful domain expert."]);
+  const core = `Task: ${goal}.`;
+
+  const weak = `${core} ${pick(extras.style)}`;
+  const mid = `${baseRole} ${core} ${pick(extras.structure)} ${pick(extras.style)}`;
+  const strong = `${baseRole} ${core} ${pick(extras.structure)} ${pick(extras.quality)} ${pick(extras.style)} Include constraints explicitly and avoid unsupported claims.`;
+
+  // Evil mode makes options more similar
+  const candidates = mode==='evil'
+    ? [
+      `${baseRole} ${core} ${pick(extras.structure)} ${pick(extras.style)}`,
+      `${baseRole} ${core} ${pick(extras.structure)} ${pick(extras.quality)} ${pick(extras.style)}`,
+      `${baseRole} ${core} ${pick(extras.structure)} ${pick(extras.quality)} ${pick(extras.style)} Include explicit acceptance criteria.`
+    ]
+    : [weak, mid, strong];
+
+  const scored = candidates.map(c=>({text:c, ...scorePrompt(c,target,mode)}));
+  const sorted = [...scored].sort((a,b)=>b.score-a.score);
+  const best = sorted[0].score;
+
+  // mark quality bands (best / acceptable / weak)
+  const options = scored.map(o=>{
+    const delta = best - o.score;
+    let band = 'bad';
+    if (delta <= 2) band = 'good';
+    else if (delta <= 8) band = 'ok';
+    return {...o, band};
+  });
+
+  return {goal, target, options:shuffle(options), best};
+}
+
+let state = {score:0, streak:0, round:1, time:75, timer:null, mode:'pro', current:null};
+const $ = (id)=>document.getElementById(id);
+
+function setStats(){
+  $('score').textContent = state.score;
+  $('streak').textContent = state.streak;
+  $('round').textContent = state.round;
+  $('time').textContent = state.time;
+}
+
+function renderRound(){
+  state.mode = $('difficulty').value;
+  state.current = buildRound(state.mode);
+  $('goal').textContent = `Goal ${state.round}: ${state.current.goal}`;
+  $('feedback').textContent = '';
+  $('next').style.display='none';
+
+  $('options').innerHTML = state.current.options.map((o,i)=>
+    `<button class="opt" data-i="${i}">${o.text}</button>`
+  ).join('');
+
+  [...document.querySelectorAll('.opt')].forEach(btn=>btn.onclick=()=>choose(+btn.dataset.i, btn));
+}
+
+function choose(i, btn){
+  const chosen = state.current.options[i];
+  const bestScore = state.current.best;
+  const delta = bestScore - chosen.score;
+
+  [...document.querySelectorAll('.opt')].forEach(b=>b.disabled=true);
+
+  let gained = 0;
+  let label = '';
+  if (chosen.band === 'good') {
+    btn.classList.add('good');
+    gained = 12 + Math.min(state.streak,6);
+    state.streak++;
+    label = '✅ Best-in-round choice';
+  } else if (chosen.band === 'ok') {
+    btn.classList.add('ok');
+    gained = 4;
+    state.streak = 0;
+    label = '🟡 Acceptable, but not best';
+  } else {
+    btn.classList.add('bad');
+    gained = -4;
+    state.streak = 0;
+    label = '❌ Weak prompt quality';
   }
 
-  function tick(){
-    t--; el('time').textContent=t;
-    if(t<=0){ clearInterval(timer); end(); }
-  }
+  state.score = Math.max(0, state.score + gained);
+  setStats();
 
-  function end(){
-    el('play').style.display='none';
-    el('end').style.display='block';
-    el('finalScore').textContent = score;
-    el('tip').textContent = score>=50 ? "Great prompt instincts. Try adding edge-case constraints next." : "Tip: always include audience, format, and constraints.";
-  }
+  const topSignals = [...new Set((state.current.options
+    .sort((a,b)=>b.score-a.score)[0].signals || []))].slice(0,3).join(', ') || 'constraints and format';
 
-  el('next').onclick = ()=>{ i++; render(); };
-  el('restart').onclick = ()=>{ score=0; streak=0; i=0; t=60; el('score').textContent=0; el('streak').textContent=0; el('time').textContent=60; el('play').style.display='block'; el('end').style.display='none'; render(); clearInterval(timer); timer=setInterval(tick,1000); };
+  $('feedback').innerHTML = `${label}. <b>${gained>=0?'+':''}${gained}</b> points.<br>`+
+    `<span class="mini">Why: best prompts in this round emphasized <b>${topSignals}</b>. Your pick was ${delta<=2?'very close':'noticeably behind'} the top score.</span>`;
 
-  render();
-  timer=setInterval(tick,1000);
-  </script>
+  $('next').style.display='block';
+}
+
+function tick(){
+  state.time--; setStats();
+  if(state.time<=0){ clearInterval(state.timer); finish(); }
+}
+
+function finish(){
+  $('playCard').style.display='none';
+  $('endCard').style.display='block';
+  $('final').textContent = `${state.score} pts`;
+  const verdict = state.score>=90 ? 'Prompt strategist level.' : state.score>=55 ? 'Solid operator. You can improve precision under pressure.' : 'Good start. Focus on constraints + output format.';
+  $('summary').textContent = verdict;
+}
+
+function restart(){
+  state = {score:0, streak:0, round:1, time:75, timer:null, mode:$('difficulty').value, current:null};
+  $('playCard').style.display='block';
+  $('endCard').style.display='none';
+  setStats();
+  renderRound();
+  clearInterval(state.timer);
+  state.timer = setInterval(tick,1000);
+}
+
+$('next').onclick = ()=>{ state.round++; renderRound(); setStats(); };
+$('restart').onclick = restart;
+$('copy').onclick = async ()=>{
+  const text = `I scored ${state.score} in Prompt Quest v2 (${state.mode}).`;
+  try { await navigator.clipboard.writeText(text); $('copy').textContent='Copied!'; setTimeout(()=>$('copy').textContent='Copy Score',1200); }
+  catch { $('copy').textContent='Copy failed'; }
+};
+$('difficulty').onchange = ()=>{ if($('playCard').style.display!=='none') renderRound(); };
+
+restart();
+</script>
 </body>
 </html>
