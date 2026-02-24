@@ -61,7 +61,7 @@
 
   <div class="card" id="profileCard">
     <h3>Your Investor Profile (helps tune better questions)</h3>
-    <div class="muted">Answer these once. All are multiple-choice. Saved locally in this browser + exportable JSON.</div>
+    <div class="muted">Answer these once. All are multi-select checkboxes. Saved locally in this browser + exportable JSON.</div>
     <div id="profileQs" style="margin-top:8px"></div>
     <div class="row" style="margin-top:8px">
       <button class="btn ghost" id="saveProfile">Save Profile</button>
@@ -159,15 +159,18 @@ function renderProfile(){
   host.innerHTML = profileQuestions.map(q=>`
     <div class="q" style="margin:8px 0">
       <div class="qhead">${q.id}. ${q.text}</div>
-      ${q.options.map((o,i)=>`<label class="opt"><input type="radio" name="${q.id}" value="${o}"> ${o}</label>`).join('')}
+      ${q.options.map((o,i)=>`<label class="opt"><input type="checkbox" name="${q.id}" value="${o}"> ${o}</label>`).join('')}
     </div>
   `).join('');
   const raw = localStorage.getItem(PROFILE_KEY);
   if(raw){
     const p = JSON.parse(raw);
     for(const [k,v] of Object.entries(p.answers||{})){
-      const r = document.querySelector(`input[name='${k}'][value="${CSS.escape(v)}"]`);
-      if(r) r.checked = true;
+      const vals = Array.isArray(v) ? v : [v];
+      for(const one of vals){
+        const r = document.querySelector(`input[name='${k}'][value="${CSS.escape(one)}"]`);
+        if(r) r.checked = true;
+      }
     }
     $('profileState').textContent = `Saved: ${p.savedAt?.slice(0,19).replace('T',' ') || 'yes'}`;
   }
@@ -176,8 +179,8 @@ function renderProfile(){
 function collectProfile(){
   const answers = {};
   for(const q of profileQuestions){
-    const sel = document.querySelector(`input[name='${q.id}']:checked`);
-    if(sel) answers[q.id] = sel.value;
+    const sels = [...document.querySelectorAll(`input[name='${q.id}']:checked`)];
+    if(sels.length) answers[q.id] = sels.map(x=>x.value);
   }
   return {version:'v1', savedAt:new Date().toISOString(), answers};
 }
