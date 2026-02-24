@@ -46,6 +46,7 @@
       <button class="btn ghost" id="switchQ">Load</button>
     </div>
     <div class="muted">30-question mobile assessment. Single-choice answers + optional free-text “Other”.</div>
+    <div class="pill" id="activeQLabel" style="margin-top:8px;display:inline-block">Active: loading...</div>
   </div>
 
   <div class="card">
@@ -87,6 +88,7 @@ const QUESTIONNAIRES = [
   { id:'product-guy-join-team-v1', label:'Should I Join as Product Guy?', path:'./configs/product-guy-join-team-v1.json' }
 ];
 let config;
+let activeLoadToken = 0;
 
 const $ = id => document.getElementById(id);
 const draftKey = (qid) => `investment-dd-draft-${qid}`;
@@ -203,9 +205,14 @@ function wireProfileActions(){
 }
 
 async function loadConfig(path){
-  const r = await fetch(path);
-  config = await r.json();
+  const myToken = ++activeLoadToken;
+  $('questions').innerHTML = '<h2>Questionnaire</h2><div class="muted">Loading…</div>';
+  const r = await fetch(path, {cache:'no-store'});
+  const nextConfig = await r.json();
+  if (myToken !== activeLoadToken) return; // drop stale async load
+  config = nextConfig;
   $('qid').textContent = config.id;
+  $('activeQLabel').textContent = `Active: ${config.name || config.id}`;
   $('wProduct').value = config.defaultWeights.product;
   $('wTeam').value = config.defaultWeights.team;
   $('wVision').value = config.defaultWeights.vision;
@@ -379,8 +386,11 @@ function initQuestionnaireMenu(){
   sel.innerHTML = QUESTIONNAIRES.map(q=>`<option value="${q.path}">${q.label}</option>`).join('');
   $('switchQ').onclick = async ()=>{
     saveCurrentDraft();
+    $('switchQ').disabled = true;
+    $('result').style.display = 'none';
     await loadConfig(sel.value);
     localStorage.setItem('investment-dd-active-config', sel.value);
+    $('switchQ').disabled = false;
     window.scrollTo({top:0,behavior:'smooth'});
   };
 }
