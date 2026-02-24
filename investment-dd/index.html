@@ -168,7 +168,7 @@ function renderProfile(){
     for(const [k,v] of Object.entries(p.answers||{})){
       const vals = Array.isArray(v) ? v : [v];
       for(const one of vals){
-        const r = document.querySelector(`input[name='${k}'][value="${CSS.escape(one)}"]`);
+        const r = [...document.querySelectorAll(`input[name='${k}']`)].find(el => el.value === one);
         if(r) r.checked = true;
       }
     }
