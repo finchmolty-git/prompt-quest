@@ -5,9 +5,9 @@
   <meta name="viewport" content="width=device-width,initial-scale=1"/>
   <title>Investment DD Scorer</title>
   <style>
-    :root{--bg:#0b1020;--card:#121a2d;--line:#2a3858;--txt:#e7edf7;--muted:#9aabc7;--good:#22c55e;--med:#f59e0b;--bad:#ef4444;--acc:#38bdf8}
+    :root{--bg:#0b1020;--card:#121a2d;--line:#2a3858;--txt:#e7edf7;--muted:#9aabc7;--good:#22c55e;--med:#f59e0b;--bad:#ef4444;--acc:#38bdf8;--danger:#ef4444}
     *{box-sizing:border-box} body{margin:0;background:linear-gradient(#0a1020,#121a30);color:var(--txt);font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
-    .wrap{max-width:760px;margin:0 auto;padding:12px;display:flex;flex-direction:column;gap:10px}
+    .wrap{max-width:860px;margin:0 auto;padding:12px;display:flex;flex-direction:column;gap:10px}
     .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px}
     .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;justify-content:space-between}
     h1,h2,h3{margin:.2rem 0}.muted{color:var(--muted)}
@@ -15,7 +15,7 @@
     .q{padding:10px;border:1px solid var(--line);border-radius:10px;margin:10px 0;background:#0d1427}
     .qhead{font-weight:700;margin-bottom:6px}
     label.opt{display:block;padding:8px;border:1px solid #2e3b5f;border-radius:8px;margin:6px 0;line-height:1.3}
-    input[type=radio]{margin-right:8px}
+    input[type=radio],input[type=checkbox]{margin-right:8px}
     textarea{width:100%;background:#0b1222;color:var(--txt);border:1px solid #2e3b5f;border-radius:8px;padding:8px;min-height:56px}
     .btn{border:0;background:var(--acc);color:#032032;font-weight:700;padding:10px 12px;border-radius:10px}
     .btn.ghost{background:#1d2a44;color:var(--txt);border:1px solid #304163}
@@ -24,6 +24,12 @@
     .score{font-size:1.2rem;font-weight:800}
     .good{color:var(--good)} .med{color:var(--med)} .bad{color:var(--bad)}
     .grid3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+    .chips{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}
+    .chip{font-size:.78rem;border:1px solid #3a4a70;border-radius:999px;padding:5px 8px;background:#0f1830}
+    .chip input{margin-right:6px}
+    .q.flagged{border-color:#7f1d1d;background:#1a1320}
+    .danger{color:#fecaca}
+    .xline{display:flex;gap:8px;align-items:center;justify-content:space-between;margin:8px 0 4px}
     @media (max-width:640px){.grid3{grid-template-columns:1fr}}
   </style>
 </head>
@@ -61,8 +67,12 @@
 
 <script>
 const CONFIG_PATH = './configs/pulseio-founder-dd-v1.json';
-let config, answers = {};
+let config;
 const $ = id => document.getElementById(id);
+
+const replaceReasons = [
+  'Too generic', 'Irrelevant to this founder', 'Duplicate/redundant', 'Too vague/unclear', 'Not investment-critical', 'Biased framing'
+];
 
 function clsFor(n){ return n>=75?'good':n>=55?'med':'bad'; }
 function recFor(n){ return n>=80?'Strong Invest':n>=60?'Watchlist / Conditional':'High Risk / Pass for now'; }
@@ -88,7 +98,7 @@ function renderQuestions(){
   const byCat = {product:[],team:[],vision:[]};
   config.questions.forEach(q=>byCat[q.category].push(q));
   const host = $('questions');
-  host.innerHTML = '<h2>Questionnaire</h2>';
+  host.innerHTML = '<h2>Questionnaire</h2><div class="muted">Use ✕ Replace on weak questions and select why (multi-select). Those are excluded from scoring and listed for replacement.</div>';
 
   ['product','team','vision'].forEach(cat=>{
     const sec = document.createElement('div');
@@ -96,11 +106,26 @@ function renderQuestions(){
     byCat[cat].forEach(q=>{
       const d = document.createElement('div');
       d.className='q';
-      d.innerHTML = `<div class="qhead">${q.id}. ${q.text}</div>` +
-        q.options.map((o,i)=>`<label class="opt"><input type="radio" name="${q.id}" value="${o.score}" data-label="${escapeHtml(o.label)}"> ${o.label}</label>`).join('') +
-        `<label class="opt"><input type="radio" name="${q.id}" value="0" data-label="Other"> Other (free text)</label>` +
-        `<textarea id="other_${q.id}" placeholder="Optional notes / other answer..."></textarea>`;
+      d.id = `card_${q.id}`;
+      const reasonChips = replaceReasons.map((r,i)=>`<label class="chip"><input type="checkbox" name="xreason_${q.id}" value="${r}"> ${r}</label>`).join('');
+      d.innerHTML = `<div class="qhead">${q.id}. ${q.text}</div>
+        ${q.options.map((o)=>`<label class="opt"><input type="radio" name="${q.id}" value="${o.score}" data-label="${escapeHtml(o.label)}"> ${o.label}</label>`).join('')}
+        <label class="opt"><input type="radio" name="${q.id}" value="0" data-label="Other"> Other (free text)</label>
+        <textarea id="other_${q.id}" placeholder="Optional notes / other answer..."></textarea>
+        <div class="xline">
+          <label class="danger"><input type="checkbox" id="drop_${q.id}"> ✕ Replace this question</label>
+          <span class="muted" style="font-size:.82rem">Excluded from score if checked</span>
+        </div>
+        <div class="chips">${reasonChips}</div>
+        <textarea id="xnote_${q.id}" placeholder="Replacement guidance (optional): what should this ask instead?"></textarea>`;
       sec.appendChild(d);
+
+      setTimeout(()=>{
+        const drop = document.getElementById(`drop_${q.id}`);
+        drop.addEventListener('change', ()=>{
+          document.getElementById(`card_${q.id}`).classList.toggle('flagged', drop.checked);
+        });
+      },0);
     });
     host.appendChild(sec);
   });
@@ -109,15 +134,32 @@ function renderQuestions(){
 function escapeHtml(s){return s.replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#039;"}[m]));}
 
 function collect(){
-  const out = { questionnaireId: config.id, createdAt: new Date().toISOString(), weights:{product:+$('wProduct').value||0,team:+$('wTeam').value||0,vision:+$('wVision').value||0}, answers:[] };
+  const out = {
+    questionnaireId: config.id,
+    createdAt: new Date().toISOString(),
+    weights:{product:+$('wProduct').value||0,team:+$('wTeam').value||0,vision:+$('wVision').value||0},
+    answers:[],
+    replacements:[]
+  };
+
   for(const q of config.questions){
+    const dropped = document.getElementById(`drop_${q.id}`).checked;
+    const reasons = [...document.querySelectorAll(`input[name='xreason_${q.id}']:checked`)].map(x=>x.value);
+    const xnote = document.getElementById(`xnote_${q.id}`).value.trim();
+
+    if(dropped){
+      out.replacements.push({id:q.id, category:q.category, question:q.text, reasons, note:xnote});
+      continue;
+    }
+
     const sel = document.querySelector(`input[name='${q.id}']:checked`);
     if(!sel) continue;
+
     out.answers.push({
       id:q.id, category:q.category, question:q.text,
       score:+sel.value,
       label:sel.dataset.label,
-      otherText: $('other_'+q.id).value.trim() || ''
+      otherText: document.getElementById('other_'+q.id).value.trim() || ''
     });
   }
   return out;
@@ -126,8 +168,8 @@ function collect(){
 function compute(payload){
   const buckets = {product:[],team:[],vision:[]};
   for(const a of payload.answers) buckets[a.category].push(a.score);
-
   const avg = cat => buckets[cat].length ? (buckets[cat].reduce((x,y)=>x+y,0)/buckets[cat].length) : 0;
+
   const catPct = {
     product: (avg('product')/5)*100,
     team: (avg('team')/5)*100,
@@ -137,36 +179,38 @@ function compute(payload){
   const w = payload.weights;
   const totalW = (w.product+w.team+w.vision) || 1;
   const nw = {product:w.product/totalW, team:w.team/totalW, vision:w.vision/totalW};
-
   const weighted = (catPct.product*nw.product)+(catPct.team*nw.team)+(catPct.vision*nw.vision);
 
-  const low = payload.answers
-    .filter(a=>a.score<=2)
-    .slice(0,8)
-    .map(a=>`${a.id} (${a.category}): ${a.label}${a.otherText?` — ${a.otherText}`:''}`);
-
+  const low = payload.answers.filter(a=>a.score<=2).slice(0,8).map(a=>`${a.id} (${a.category}): ${a.label}${a.otherText?` — ${a.otherText}`:''}`);
   return {catPct, weighted:Math.round(weighted), recommendation:recFor(weighted), risks:low};
 }
 
 function renderResult(payload, stats){
   const done = payload.answers.length;
   const total = config.questions.length;
-  const missing = total-done;
+  const removed = payload.replacements.length;
+
   $('result').style.display='block';
   $('result').innerHTML = `
     <h2>Investment Assessment Summary</h2>
     <div class="kpi">
       <div class="card"><div class="muted">Overall Score</div><div class="score ${clsFor(stats.weighted)}">${stats.weighted}/100</div><div>${stats.recommendation}</div></div>
-      <div class="card"><div class="muted">Completion</div><div class="score">${done}/${total}</div><div>${missing?missing+' unanswered':''}</div></div>
+      <div class="card"><div class="muted">Scored Questions</div><div class="score">${done}/${total}</div><div>${removed} marked for replacement</div></div>
     </div>
+
     <h3>Category Scores</h3>
     <div class="grid3">
       <div class="card"><div class="muted">Product</div><div class="score ${clsFor(stats.catPct.product)}">${Math.round(stats.catPct.product)}%</div></div>
       <div class="card"><div class="muted">Team</div><div class="score ${clsFor(stats.catPct.team)}">${Math.round(stats.catPct.team)}%</div></div>
       <div class="card"><div class="muted">Vision</div><div class="score ${clsFor(stats.catPct.vision)}">${Math.round(stats.catPct.vision)}%</div></div>
     </div>
+
     <h3>Top Risks (score <=2)</h3>
     <div class="card">${stats.risks.length?('<ul>'+stats.risks.map(r=>`<li>${r}</li>`).join('')+'</ul>'):'<span class="good">No major low-score risks captured.</span>'}</div>
+
+    <h3>Questions You Marked for Replacement</h3>
+    <div class="card">${payload.replacements.length ? '<ul>'+payload.replacements.map(r=>`<li><b>${r.id}</b> (${r.category}) — ${r.reasons.join(', ') || 'No reason selected'}${r.note?`<br><span class="muted">Note: ${r.note}</span>`:''}</li>`).join('')+'</ul>' : '<span class="muted">None marked.</span>'}</div>
+
     <h3>Recommendation Snapshot</h3>
     <div class="card">${stats.recommendation}. ${stats.weighted>=80?'High-confidence follow-up on terms and sizing.':stats.weighted>=60?'Proceed with conditions and evidence requests.':'Defer or pass unless major risks are resolved.'}</div>
   `;
@@ -195,11 +239,21 @@ $('load').onclick = ()=>{
   if(!raw) return alert('No saved response found.');
   const p = JSON.parse(raw);
   $('wProduct').value = p.weights.product; $('wTeam').value = p.weights.team; $('wVision').value = p.weights.vision; updateWeightTotal();
-  for(const a of p.answers){
+
+  for(const a of p.answers || []){
     const radios = document.querySelectorAll(`input[name='${a.id}']`);
     for(const r of radios){ if(+r.value===+a.score && r.dataset.label===a.label){ r.checked=true; break; } }
-    const t = $('other_'+a.id); if(t) t.value = a.otherText||'';
+    const t = document.getElementById('other_'+a.id); if(t) t.value = a.otherText||'';
   }
+  for(const r of p.replacements || []){
+    const d = document.getElementById('drop_'+r.id); if(d){ d.checked=true; document.getElementById('card_'+r.id).classList.add('flagged'); }
+    for(const reason of (r.reasons||[])){
+      const box = [...document.querySelectorAll(`input[name='xreason_${r.id}']`)].find(x=>x.value===reason);
+      if(box) box.checked=true;
+    }
+    const n = document.getElementById('xnote_'+r.id); if(n) n.value = r.note||'';
+  }
+
   const stats = compute(p); renderResult(p, stats);
 };
 
