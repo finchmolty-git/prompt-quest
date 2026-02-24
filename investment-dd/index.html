@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Investment DD Scorer</title>
+  <style>
+    :root{--bg:#0b1020;--card:#121a2d;--line:#2a3858;--txt:#e7edf7;--muted:#9aabc7;--good:#22c55e;--med:#f59e0b;--bad:#ef4444;--acc:#38bdf8}
+    *{box-sizing:border-box} body{margin:0;background:linear-gradient(#0a1020,#121a30);color:var(--txt);font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+    .wrap{max-width:760px;margin:0 auto;padding:12px;display:flex;flex-direction:column;gap:10px}
+    .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px}
+    .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;justify-content:space-between}
+    h1,h2,h3{margin:.2rem 0}.muted{color:var(--muted)}
+    .pill{padding:6px 10px;border:1px solid var(--line);border-radius:999px;background:#0d1528;font-size:.82rem}
+    .q{padding:10px;border:1px solid var(--line);border-radius:10px;margin:10px 0;background:#0d1427}
+    .qhead{font-weight:700;margin-bottom:6px}
+    label.opt{display:block;padding:8px;border:1px solid #2e3b5f;border-radius:8px;margin:6px 0;line-height:1.3}
+    input[type=radio]{margin-right:8px}
+    textarea{width:100%;background:#0b1222;color:var(--txt);border:1px solid #2e3b5f;border-radius:8px;padding:8px;min-height:56px}
+    .btn{border:0;background:var(--acc);color:#032032;font-weight:700;padding:10px 12px;border-radius:10px}
+    .btn.ghost{background:#1d2a44;color:var(--txt);border:1px solid #304163}
+    .kpi{display:grid;grid-template-columns:repeat(2,minmax(120px,1fr));gap:8px}
+    .kpi .card{padding:10px}
+    .score{font-size:1.2rem;font-weight:800}
+    .good{color:var(--good)} .med{color:var(--med)} .bad{color:var(--bad)}
+    .grid3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+    @media (max-width:640px){.grid3{grid-template-columns:1fr}}
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <div class="card">
+    <div class="row">
+      <h1>Founder Investment DD Scorer</h1>
+      <span class="pill" id="qid">loading...</span>
+    </div>
+    <div class="muted">30-question mobile assessment. Single-choice answers + optional free-text “Other”.</div>
+  </div>
+
+  <div class="card">
+    <h3>Weights (configurable)</h3>
+    <div class="row">
+      <label>Product % <input id="wProduct" type="number" min="0" max="100"/></label>
+      <label>Team % <input id="wTeam" type="number" min="0" max="100"/></label>
+      <label>Vision % <input id="wVision" type="number" min="0" max="100"/></label>
+      <span class="pill" id="wTotal">Total: 100</span>
+    </div>
+    <div class="muted">Tip: keep total = 100. If not, score auto-normalizes.</div>
+  </div>
+
+  <div id="questions" class="card"></div>
+
+  <div class="row">
+    <button class="btn" id="calc">Calculate Investment Score</button>
+    <button class="btn ghost" id="save">Save Response (JSON)</button>
+    <button class="btn ghost" id="load">Load Last Saved</button>
+  </div>
+
+  <div id="result" class="card" style="display:none"></div>
+</div>
+
+<script>
+const CONFIG_PATH = './configs/pulseio-founder-dd-v1.json';
+let config, answers = {};
+const $ = id => document.getElementById(id);
+
+function clsFor(n){ return n>=75?'good':n>=55?'med':'bad'; }
+function recFor(n){ return n>=80?'Strong Invest':n>=60?'Watchlist / Conditional':'High Risk / Pass for now'; }
+
+async function loadConfig(){
+  const r = await fetch(CONFIG_PATH);
+  config = await r.json();
+  $('qid').textContent = config.id;
+  $('wProduct').value = config.defaultWeights.product;
+  $('wTeam').value = config.defaultWeights.team;
+  $('wVision').value = config.defaultWeights.vision;
+  updateWeightTotal();
+  renderQuestions();
+}
+
+function updateWeightTotal(){
+  const t = (+$('wProduct').value||0)+(+$('wTeam').value||0)+(+$('wVision').value||0);
+  $('wTotal').textContent = `Total: ${t}`;
+}
+['wProduct','wTeam','wVision'].forEach(id=>$(id).addEventListener('input',updateWeightTotal));
+
+function renderQuestions(){
+  const byCat = {product:[],team:[],vision:[]};
+  config.questions.forEach(q=>byCat[q.category].push(q));
+  const host = $('questions');
+  host.innerHTML = '<h2>Questionnaire</h2>';
+
+  ['product','team','vision'].forEach(cat=>{
+    const sec = document.createElement('div');
+    sec.innerHTML = `<h3 style="text-transform:capitalize">${cat} (${byCat[cat].length})</h3>`;
+    byCat[cat].forEach(q=>{
+      const d = document.createElement('div');
+      d.className='q';
+      d.innerHTML = `<div class="qhead">${q.id}. ${q.text}</div>` +
+        q.options.map((o,i)=>`<label class="opt"><input type="radio" name="${q.id}" value="${o.score}" data-label="${escapeHtml(o.label)}"> ${o.label}</label>`).join('') +
+        `<label class="opt"><input type="radio" name="${q.id}" value="0" data-label="Other"> Other (free text)</label>` +
+        `<textarea id="other_${q.id}" placeholder="Optional notes / other answer..."></textarea>`;
+      sec.appendChild(d);
+    });
+    host.appendChild(sec);
+  });
+}
+
+function escapeHtml(s){return s.replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#039;"}[m]));}
+
+function collect(){
+  const out = { questionnaireId: config.id, createdAt: new Date().toISOString(), weights:{product:+$('wProduct').value||0,team:+$('wTeam').value||0,vision:+$('wVision').value||0}, answers:[] };
+  for(const q of config.questions){
+    const sel = document.querySelector(`input[name='${q.id}']:checked`);
+    if(!sel) continue;
+    out.answers.push({
+      id:q.id, category:q.category, question:q.text,
+      score:+sel.value,
+      label:sel.dataset.label,
+      otherText: $('other_'+q.id).value.trim() || ''
+    });
+  }
+  return out;
+}
+
+function compute(payload){
+  const buckets = {product:[],team:[],vision:[]};
+  for(const a of payload.answers) buckets[a.category].push(a.score);
+
+  const avg = cat => buckets[cat].length ? (buckets[cat].reduce((x,y)=>x+y,0)/buckets[cat].length) : 0;
+  const catPct = {
+    product: (avg('product')/5)*100,
+    team: (avg('team')/5)*100,
+    vision: (avg('vision')/5)*100
+  };
+
+  const w = payload.weights;
+  const totalW = (w.product+w.team+w.vision) || 1;
+  const nw = {product:w.product/totalW, team:w.team/totalW, vision:w.vision/totalW};
+
+  const weighted = (catPct.product*nw.product)+(catPct.team*nw.team)+(catPct.vision*nw.vision);
+
+  const low = payload.answers
+    .filter(a=>a.score<=2)
+    .slice(0,8)
+    .map(a=>`${a.id} (${a.category}): ${a.label}${a.otherText?` — ${a.otherText}`:''}`);
+
+  return {catPct, weighted:Math.round(weighted), recommendation:recFor(weighted), risks:low};
+}
+
+function renderResult(payload, stats){
+  const done = payload.answers.length;
+  const total = config.questions.length;
+  const missing = total-done;
+  $('result').style.display='block';
+  $('result').innerHTML = `
+    <h2>Investment Assessment Summary</h2>
+    <div class="kpi">
+      <div class="card"><div class="muted">Overall Score</div><div class="score ${clsFor(stats.weighted)}">${stats.weighted}/100</div><div>${stats.recommendation}</div></div>
+      <div class="card"><div class="muted">Completion</div><div class="score">${done}/${total}</div><div>${missing?missing+' unanswered':''}</div></div>
+    </div>
+    <h3>Category Scores</h3>
+    <div class="grid3">
+      <div class="card"><div class="muted">Product</div><div class="score ${clsFor(stats.catPct.product)}">${Math.round(stats.catPct.product)}%</div></div>
+      <div class="card"><div class="muted">Team</div><div class="score ${clsFor(stats.catPct.team)}">${Math.round(stats.catPct.team)}%</div></div>
+      <div class="card"><div class="muted">Vision</div><div class="score ${clsFor(stats.catPct.vision)}">${Math.round(stats.catPct.vision)}%</div></div>
+    </div>
+    <h3>Top Risks (score <=2)</h3>
+    <div class="card">${stats.risks.length?('<ul>'+stats.risks.map(r=>`<li>${r}</li>`).join('')+'</ul>'):'<span class="good">No major low-score risks captured.</span>'}</div>
+    <h3>Recommendation Snapshot</h3>
+    <div class="card">${stats.recommendation}. ${stats.weighted>=80?'High-confidence follow-up on terms and sizing.':stats.weighted>=60?'Proceed with conditions and evidence requests.':'Defer or pass unless major risks are resolved.'}</div>
+  `;
+}
+
+$('calc').onclick = ()=>{
+  const payload = collect();
+  localStorage.setItem('investment-dd-last', JSON.stringify(payload));
+  const stats = compute(payload);
+  renderResult(payload, stats);
+  window.scrollTo({top:document.body.scrollHeight, behavior:'smooth'});
+};
+
+$('save').onclick = ()=>{
+  const payload = collect();
+  const blob = new Blob([JSON.stringify(payload,null,2)], {type:'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `${config.id}-response-${new Date().toISOString().slice(0,19).replace(/[:T]/g,'-')}.json`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+};
+
+$('load').onclick = ()=>{
+  const raw = localStorage.getItem('investment-dd-last');
+  if(!raw) return alert('No saved response found.');
+  const p = JSON.parse(raw);
+  $('wProduct').value = p.weights.product; $('wTeam').value = p.weights.team; $('wVision').value = p.weights.vision; updateWeightTotal();
+  for(const a of p.answers){
+    const radios = document.querySelectorAll(`input[name='${a.id}']`);
+    for(const r of radios){ if(+r.value===+a.score && r.dataset.label===a.label){ r.checked=true; break; } }
+    const t = $('other_'+a.id); if(t) t.value = a.otherText||'';
+  }
+  const stats = compute(p); renderResult(p, stats);
+};
+
+loadConfig();
+</script>
+</body>
+</html>
