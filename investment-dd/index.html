@@ -89,6 +89,7 @@ const QUESTIONNAIRES = [
 ];
 let config;
 let activeLoadToken = 0;
+function questionnaireById(id){ return QUESTIONNAIRES.find(q=>q.id===id); }
 
 const $ = id => document.getElementById(id);
 const draftKey = (qid) => `investment-dd-draft-${qid}`;
@@ -383,25 +384,35 @@ $('load').onclick = ()=>{
 
 function initQuestionnaireMenu(){
   const sel = $('qSelect');
-  sel.innerHTML = QUESTIONNAIRES.map(q=>`<option value="${q.path}">${q.label}</option>`).join('');
-  $('switchQ').onclick = async ()=>{
+  sel.innerHTML = QUESTIONNAIRES.map(q=>`<option value="${q.id}">${q.label}</option>`).join('');
+  const doSwitch = async ()=>{
     saveCurrentDraft();
     $('switchQ').disabled = true;
     $('result').style.display = 'none';
-    await loadConfig(sel.value);
-    localStorage.setItem('investment-dd-active-config', sel.value);
-    $('switchQ').disabled = false;
-    window.scrollTo({top:0,behavior:'smooth'});
+    try {
+      const q = questionnaireById(sel.value);
+      if(!q) throw new Error('Unknown questionnaire');
+      await loadConfig(q.path);
+      localStorage.setItem('investment-dd-active-config', q.id);
+      window.scrollTo({top:0,behavior:'smooth'});
+    } catch(e){
+      alert('Failed to load questionnaire: ' + e.message);
+    } finally {
+      $('switchQ').disabled = false;
+    }
   };
+  $('switchQ').onclick = doSwitch;
+  sel.onchange = doSwitch;
 }
 
 renderProfile();
 wireProfileActions();
 
 initQuestionnaireMenu();
-const saved = localStorage.getItem('investment-dd-active-config') || QUESTIONNAIRES[0].path;
-$('qSelect').value = saved;
-loadConfig(saved);
+const savedId = localStorage.getItem('investment-dd-active-config') || QUESTIONNAIRES[0].id;
+$('qSelect').value = savedId;
+const initial = questionnaireById(savedId) || QUESTIONNAIRES[0];
+loadConfig(initial.path);
 </script>
 </body>
 </html>
