@@ -135,37 +135,57 @@ const replaceReasons = [
   'Too generic', 'Irrelevant to this founder', 'Duplicate/redundant', 'Too vague/unclear', 'Not investment-critical', 'Biased framing'
 ];
 
-const PROFILE_KEY = 'investment-dd-user-profile-v1';
-const profileQuestions = [
-  {id:'U1', text:'Your preferred investment stage?', options:['Pre-seed','Seed','Series A','Series B+','Stage-agnostic']},
-  {id:'U2', text:'Your check style?', options:['High conviction, concentrated','Balanced portfolio','Small exploratory bets','Follow-on heavy','Unsure']},
-  {id:'U3', text:'Primary investment lens?', options:['Product quality','Team quality','Market timing','Distribution/GTM','Unit economics']},
-  {id:'U4', text:'Risk tolerance?', options:['Very high','High','Medium','Low','Very low']},
-  {id:'U5', text:'Your role preference if you join?', options:['Hands-on product lead','Advisor only','Board-level involvement','Operator+advisor hybrid','No operating role']},
-  {id:'U6', text:'Decision speed?', options:['<24h after call','2-3 days','Within a week','2+ weeks','Depends on co-investors']},
-  {id:'U7', text:'Biggest red flag for you?', options:['Founder rigidity','Weak customer pull','No moat','Poor team dynamics','Messy economics']},
-  {id:'U8', text:'What matters most in first 12 months?', options:['Product adoption','Revenue growth','Retention/expansion','Execution quality','Fundraising momentum']},
-  {id:'U9', text:'Your current primary role background?', options:['Product Management','Founder/Operator','Engineering','Growth/Marketing','Investor only']},
-  {id:'U10', text:'Years of product experience?', options:['0-2 years','3-5 years','6-10 years','11-15 years','15+ years']},
-  {id:'U11', text:'Strongest product domain?', options:['B2B SaaS','Consumer','Marketplace','Developer tools','AI/ML products']},
-  {id:'U12', text:'Product maturity you know best?', options:['0→1 discovery','1→10 scaling','10→100 optimization','Turnaround/rebuild','Multi-product portfolio']},
-  {id:'U13', text:'Where are you strongest in product craft?', options:['Discovery & research','Roadmap/prioritization','Delivery execution','Metrics/experiments','Stakeholder alignment']},
-  {id:'U14', text:'Your preferred working model with founders?', options:['Daily hands-on','Weekly strategic sync','Advisory only','Interim product lead','Depends on stage']}
-];
+const profileQuestionsByQuestionnaire = {
+  'pulseio-founder-dd-v1': [
+    {id:'U1', text:'Your preferred investment stage?', options:['Pre-seed','Seed','Series A','Series B+','Stage-agnostic']},
+    {id:'U2', text:'Your check style?', options:['High conviction, concentrated','Balanced portfolio','Small exploratory bets','Follow-on heavy','Unsure']},
+    {id:'U3', text:'Primary investment lens?', options:['Product quality','Team quality','Market timing','Distribution/GTM','Unit economics']},
+    {id:'U4', text:'Risk tolerance?', options:['Very high','High','Medium','Low','Very low']},
+    {id:'U5', text:'Your role preference if you join?', options:['Hands-on product lead','Advisor only','Board-level involvement','Operator+advisor hybrid','No operating role']},
+    {id:'U6', text:'Decision speed?', options:['<24h after call','2-3 days','Within a week','2+ weeks','Depends on co-investors']},
+    {id:'U7', text:'Biggest red flag for you?', options:['Founder rigidity','Weak customer pull','No moat','Poor team dynamics','Messy economics']},
+    {id:'U8', text:'What matters most in first 12 months?', options:['Product adoption','Revenue growth','Retention/expansion','Execution quality','Fundraising momentum']},
+    {id:'U9', text:'Your current primary role background?', options:['Product Management','Founder/Operator','Engineering','Growth/Marketing','Investor only']},
+    {id:'U10', text:'Years of product experience?', options:['0-2 years','3-5 years','6-10 years','11-15 years','15+ years']},
+    {id:'U11', text:'Strongest product domain?', options:['B2B SaaS','Consumer','Marketplace','Developer tools','AI/ML products']},
+    {id:'U12', text:'Product maturity you know best?', options:['0→1 discovery','1→10 scaling','10→100 optimization','Turnaround/rebuild','Multi-product portfolio']},
+    {id:'U13', text:'Where are you strongest in product craft?', options:['Discovery & research','Roadmap/prioritization','Delivery execution','Metrics/experiments','Stakeholder alignment']},
+    {id:'U14', text:'Your preferred working model with founders?', options:['Daily hands-on','Weekly strategic sync','Advisory only','Interim product lead','Depends on stage']}
+  ],
+  'product-guy-join-team-v1': [
+    {id:'U1', text:'What role are you evaluating joining as?', options:['First Product Hire','Head of Product','Product Lead (IC+Lead)','Fractional Product Advisor','Undecided']},
+    {id:'U2', text:'Years of product leadership experience?', options:['0-2 years','3-5 years','6-10 years','11-15 years','15+ years']},
+    {id:'U3', text:'Your strongest product phase?', options:['0→1 discovery','1→10 scaling','10→100 optimization','Turnaround/rebuild','Multi-product portfolio']},
+    {id:'U4', text:'Preferred founder collaboration style?', options:['Daily close partnership','Weekly strategic sync','As-needed advisory','Structured decision cadence','Independent with checkpoints']},
+    {id:'U5', text:'Your compensation preference?', options:['Cash-heavy','Balanced cash/equity','Equity-heavy upside','Flexible by stage','Unsure']},
+    {id:'U6', text:'Risk tolerance for joining early-stage teams?', options:['Very high','High','Medium','Low','Very low']},
+    {id:'U7', text:'Primary reason for joining this team?', options:['Mission fit','Growth opportunity','Ownership scope','Founder/team quality','Financial upside']},
+    {id:'U8', text:'What would be a hard no for you?', options:['No decision authority','Weak founder trust','Unrealistic roadmap pressure','Poor culture signals','Low upside for risk']},
+    {id:'U9', text:'Domain preference?', options:['B2B SaaS','Consumer','Marketplace','Developer tools','AI/ML products']},
+    {id:'U10', text:'Work model preference?', options:['Remote','Hybrid','In-person','Flexible','No preference']}
+  ]
+};
 
+function currentProfileQuestions(){
+  return profileQuestionsByQuestionnaire[config?.id] || profileQuestionsByQuestionnaire['pulseio-founder-dd-v1'];
+}
+function profileKey(){
+  const qid = config?.id || 'global';
+  return `investment-dd-user-profile-v1-${qid}`;
+}
 function clsFor(n){ return n>=75?'good':n>=55?'med':'bad'; }
 function recFor(n){ return n>=80?'Strong Invest':n>=60?'Watchlist / Conditional':'High Risk / Pass for now'; }
 
 
 function renderProfile(){
   const host = $('profileQs');
-  host.innerHTML = profileQuestions.map(q=>`
+  host.innerHTML = currentProfileQuestions().map(q=>`
     <div class="q" style="margin:8px 0">
       <div class="qhead">${q.id}. ${q.text}</div>
       ${q.options.map((o,i)=>`<label class="opt"><input type="checkbox" name="${q.id}" value="${o}"> ${o}</label>`).join('')}
     </div>
   `).join('');
-  const raw = localStorage.getItem(PROFILE_KEY);
+  const raw = localStorage.getItem(profileKey());
   if(raw){
     const p = JSON.parse(raw);
     for(const [k,v] of Object.entries(p.answers||{})){
@@ -181,7 +201,7 @@ function renderProfile(){
 
 function collectProfile(){
   const answers = {};
-  for(const q of profileQuestions){
+  for(const q of currentProfileQuestions()){
     const sels = [...document.querySelectorAll(`input[name='${q.id}']:checked`)];
     if(sels.length) answers[q.id] = sels.map(x=>x.value);
   }
@@ -191,7 +211,7 @@ function collectProfile(){
 function wireProfileActions(){
   $('saveProfile').onclick = ()=>{
     const payload = collectProfile();
-    localStorage.setItem(PROFILE_KEY, JSON.stringify(payload));
+    localStorage.setItem(profileKey(), JSON.stringify(payload));
     $('profileState').textContent = `Saved: ${payload.savedAt.slice(0,19).replace('T',' ')}`;
     alert('Profile saved. I will use this to refine future questionnaires.');
   };
@@ -220,6 +240,7 @@ async function loadConfig(path){
   updateWeightTotal();
   renderQuestions();
   restoreDraftForCurrentConfig();
+  renderProfile();
 }
 
 function updateWeightTotal(){
@@ -405,7 +426,6 @@ function initQuestionnaireMenu(){
   sel.onchange = doSwitch;
 }
 
-renderProfile();
 wireProfileActions();
 
 initQuestionnaireMenu();
