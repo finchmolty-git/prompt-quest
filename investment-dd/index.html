@@ -40,6 +40,11 @@
       <h1>Founder Investment DD Scorer</h1>
       <span class="pill" id="qid">loading...</span>
     </div>
+    <div class="row" style="margin-top:8px">
+      <label class="muted">Questionnaire</label>
+      <select id="qSelect" class="pill" style="color:var(--txt);background:#0d1528"></select>
+      <button class="btn ghost" id="switchQ">Load</button>
+    </div>
     <div class="muted">30-question mobile assessment. Single-choice answers + optional free-text “Other”.</div>
   </div>
 
@@ -66,8 +71,12 @@
 </div>
 
 <script>
-const CONFIG_PATH = './configs/pulseio-founder-dd-v1.json';
+const QUESTIONNAIRES = [
+  { id:'pulseio-founder-dd-v1', label:'PulseIO Founder Investment DD', path:'./configs/pulseio-founder-dd-v1.json' },
+  { id:'product-guy-join-team-v1', label:'Should I Join as Product Guy?', path:'./configs/product-guy-join-team-v1.json' }
+];
 let config;
+
 const $ = id => document.getElementById(id);
 
 const replaceReasons = [
@@ -77,8 +86,8 @@ const replaceReasons = [
 function clsFor(n){ return n>=75?'good':n>=55?'med':'bad'; }
 function recFor(n){ return n>=80?'Strong Invest':n>=60?'Watchlist / Conditional':'High Risk / Pass for now'; }
 
-async function loadConfig(){
-  const r = await fetch(CONFIG_PATH);
+async function loadConfig(path){
+  const r = await fetch(path);
   config = await r.json();
   $('qid').textContent = config.id;
   $('wProduct').value = config.defaultWeights.product;
@@ -257,7 +266,20 @@ $('load').onclick = ()=>{
   const stats = compute(p); renderResult(p, stats);
 };
 
-loadConfig();
+function initQuestionnaireMenu(){
+  const sel = $('qSelect');
+  sel.innerHTML = QUESTIONNAIRES.map(q=>`<option value="${q.path}">${q.label}</option>`).join('');
+  $('switchQ').onclick = async ()=>{
+    await loadConfig(sel.value);
+    localStorage.setItem('investment-dd-active-config', sel.value);
+    window.scrollTo({top:0,behavior:'smooth'});
+  };
+}
+
+initQuestionnaireMenu();
+const saved = localStorage.getItem('investment-dd-active-config') || QUESTIONNAIRES[0].path;
+$('qSelect').value = saved;
+loadConfig(saved);
 </script>
 </body>
 </html>
