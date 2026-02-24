@@ -85,7 +85,8 @@
 <script>
 const QUESTIONNAIRES = [
   { id:'pulseio-founder-dd-v1', label:'PulseIO Founder Investment DD', path:'./configs/pulseio-founder-dd-v1.json' },
-  { id:'product-guy-join-team-v1', label:'Should I Join as Product Guy?', path:'./configs/product-guy-join-team-v1.json' }
+  { id:'product-guy-join-team-v1', label:'Should I Join as Product Guy?', path:'./configs/product-guy-join-team-v1.json' },
+  { id:'my-profile-fit-v1', label:'My Profile Fit Questionnaire (auto)', path:'__generated_profile__' }
 ];
 let config;
 let activeLoadToken = 0;
@@ -173,6 +174,69 @@ function profileKey(){
   const qid = config?.id || 'global';
   return `investment-dd-user-profile-v1-${qid}`;
 }
+
+
+function getProfilePayloadByQid(qid){
+  try { return JSON.parse(localStorage.getItem(`investment-dd-user-profile-v1-${qid}`) || '{}'); }
+  catch { return {}; }
+}
+
+function pickOne(arr, fallback='Not specified'){
+  if(Array.isArray(arr) && arr.length) return arr[0];
+  return fallback;
+}
+
+function buildProfileFitQuestionnaire(){
+  const join = getProfilePayloadByQid('product-guy-join-team-v1');
+  const inv = getProfilePayloadByQid('pulseio-founder-dd-v1');
+  const a = {...(inv.answers||{}), ...(join.answers||{})};
+
+  const roleTarget = pickOne(a.U1, 'Product Lead');
+  const expYears = pickOne(a.U2, '6-10 years');
+  const phaseStrength = pickOne(a.U3, '0→1 discovery');
+  const workStyle = pickOne(a.U4, 'Weekly strategic sync');
+  const compPref = pickOne(a.U5, 'Balanced cash/equity');
+  const risk = pickOne(a.U6, 'Medium');
+  const reason = pickOne(a.U7, 'Growth opportunity');
+  const hardNo = pickOne(a.U8, 'Weak founder trust');
+  const domain = pickOne(a.U9, 'B2B SaaS');
+  const workModel = pickOne(a.U10, 'Flexible');
+
+  const opt5 = (best, good, ok, weak, bad) => ([
+    {label:best, score:5}, {label:good, score:4}, {label:ok, score:3}, {label:weak, score:2}, {label:bad, score:1}
+  ]);
+
+  return {
+    id: 'my-profile-fit-v1',
+    name: 'My Profile Fit Questionnaire (Personalized)',
+    description: `Auto-generated using your saved profile: role=${roleTarget}, exp=${expYears}, domain=${domain}.`,
+    createdAt: new Date().toISOString().slice(0,10),
+    defaultWeights: { product: 34, team: 33, vision: 33 },
+    categories: ['product','team','vision'],
+    questions: [
+      {id:'MP1', category:'product', text:`Does this role give you real ownership as ${roleTarget}?`, options:opt5('Clear authority and ownership','Strong ownership with minor constraints','Partial ownership','Mostly delivery-only','No meaningful ownership')},
+      {id:'MP2', category:'product', text:`Is the product challenge aligned with your strength in ${phaseStrength}?`, options:opt5('Strong direct alignment','Good alignment','Moderate alignment','Weak alignment','Misaligned challenge')},
+      {id:'MP3', category:'product', text:`Can your ${expYears} experience materially improve product outcomes in 90 days?`, options:opt5('Very likely with clear levers','Likely with good support','Possible but uncertain','Low likelihood','No clear impact path')},
+      {id:'MP4', category:'product', text:`How well does the company domain (${domain}) fit your product intuition?`, options:opt5('Excellent domain fit','Good fit','Some fit','Low fit','No fit')},
+      {id:'MP5', category:'product', text:'Are key product decisions driven by evidence over opinion?', options:opt5('Strong evidence-led culture','Mostly evidence-led','Mixed decision quality','Mostly opinion-led','Chaotic decisioning')},
+      {id:'MP6', category:'product', text:'Is product strategy coherent enough for you to execute effectively?', options:opt5('Very coherent','Mostly coherent','Partly coherent','Weak strategy','No strategy')},
+
+      {id:'MT1', category:'team', text:`Can you work effectively with founders in a ${workStyle} cadence?`, options:opt5('Excellent collaboration fit','Good fit','Workable','Friction likely','High conflict risk')},
+      {id:'MT2', category:'team', text:'How much trust do you have in the founders after discussions?', options:opt5('High trust','Good trust','Neutral','Some concerns','Major trust issues')},
+      {id:'MT3', category:'team', text:'How healthy is cross-functional culture for product leadership?', options:opt5('Healthy and collaborative','Generally healthy','Mixed','Siloed/friction','Toxic/political')},
+      {id:'MT4', category:'team', text:'How realistic are expectations on pace and scope?', options:opt5('Very realistic','Mostly realistic','Some overreach','Frequent overreach','Consistently unrealistic')},
+      {id:'MT5', category:'team', text:`Does compensation setup match your preference (${compPref})?`, options:opt5('Strong fit','Good fit','Acceptable','Weak fit','Poor fit for risk')},
+      {id:'MT6', category:'team', text:'Is there enough decision autonomy to avoid becoming a PM admin?', options:opt5('Strong autonomy','Good autonomy','Partial autonomy','Low autonomy','No autonomy')},
+
+      {id:'MV1', category:'vision', text:`Given your risk tolerance (${risk}), is this opportunity risk-adjusted attractive?`, options:opt5('Very attractive','Attractive','Borderline','Unattractive','High downside')},
+      {id:'MV2', category:'vision', text:`Does this role deliver your main motivation (${reason})?`, options:opt5('Strongly delivers','Mostly delivers','Partly delivers','Weakly delivers','Does not deliver')},
+      {id:'MV3', category:'vision', text:`How exposed is this role to your hard-no concern (${hardNo})?`, options:opt5('No exposure','Low exposure','Moderate exposure','High exposure','Critical exposure')},
+      {id:'MV4', category:'vision', text:`Is work model fit acceptable (${workModel})?`, options:opt5('Excellent fit','Good fit','Manageable','Poor fit','Deal-breaker fit')},
+      {id:'MV5', category:'vision', text:'Will this role accelerate your 3–5 year trajectory?', options:opt5('Major accelerator','Strong accelerator','Moderate value','Limited value','Likely detour')},
+      {id:'MV6', category:'vision', text:'Final call: based on your profile, should you join?', options:opt5('Strong yes','Yes with conditions','Maybe / gather more evidence','Likely no','No / pass')}
+    ]
+  };
+}
 function clsFor(n){ return n>=75?'good':n>=55?'med':'bad'; }
 function recFor(n){ return n>=80?'Strong Invest':n>=60?'Watchlist / Conditional':'High Risk / Pass for now'; }
 
@@ -228,8 +292,14 @@ function wireProfileActions(){
 async function loadConfig(path){
   const myToken = ++activeLoadToken;
   $('questions').innerHTML = '<h2>Questionnaire</h2><div class="muted">Loading…</div>';
-  const r = await fetch(path, {cache:'no-store'});
-  const nextConfig = await r.json();
+  let nextConfig;
+  if(path === '__generated_profile__'){
+    nextConfig = buildProfileFitQuestionnaire();
+    localStorage.setItem('investment-dd-generated-config-my-profile-fit-v1', JSON.stringify(nextConfig));
+  } else {
+    const r = await fetch(path, {cache:'no-store'});
+    nextConfig = await r.json();
+  }
   if (myToken !== activeLoadToken) return; // drop stale async load
   config = nextConfig;
   $('qid').textContent = config.id;
