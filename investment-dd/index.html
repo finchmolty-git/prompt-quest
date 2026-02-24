@@ -78,6 +78,44 @@ const QUESTIONNAIRES = [
 let config;
 
 const $ = id => document.getElementById(id);
+const draftKey = (qid) => `investment-dd-draft-${qid}`;
+
+function saveCurrentDraft(){
+  if(!config) return;
+  const payload = collect();
+  localStorage.setItem(draftKey(config.id), JSON.stringify(payload));
+}
+
+function restoreDraftForCurrentConfig(){
+  if(!config) return;
+  const raw = localStorage.getItem(draftKey(config.id));
+  if(!raw) return;
+  const p = JSON.parse(raw);
+  applyPayloadToUI(p);
+}
+
+function applyPayloadToUI(p){
+  if(!p) return;
+  if(p.weights){
+    $('wProduct').value = p.weights.product ?? $('wProduct').value;
+    $('wTeam').value = p.weights.team ?? $('wTeam').value;
+    $('wVision').value = p.weights.vision ?? $('wVision').value;
+    updateWeightTotal();
+  }
+  for(const a of p.answers || []){
+    const radios = document.querySelectorAll(`input[name='${a.id}']`);
+    for(const r of radios){ if(+r.value===+a.score && r.dataset.label===a.label){ r.checked=true; break; } }
+    const t = document.getElementById('other_'+a.id); if(t) t.value = a.otherText||'';
+  }
+  for(const r of p.replacements || []){
+    const d = document.getElementById('drop_'+r.id); if(d){ d.checked=true; document.getElementById('card_'+r.id)?.classList.add('flagged'); }
+    for(const reason of (r.reasons||[])){
+      const box = [...document.querySelectorAll(`input[name='xreason_${r.id}']`)].find(x=>x.value===reason);
+      if(box) box.checked=true;
+    }
+    const n = document.getElementById('xnote_'+r.id); if(n) n.value = r.note||'';
+  }
+}
 
 const replaceReasons = [
   'Too generic', 'Irrelevant to this founder', 'Duplicate/redundant', 'Too vague/unclear', 'Not investment-critical', 'Biased framing'
@@ -95,13 +133,14 @@ async function loadConfig(path){
   $('wVision').value = config.defaultWeights.vision;
   updateWeightTotal();
   renderQuestions();
+  restoreDraftForCurrentConfig();
 }
 
 function updateWeightTotal(){
   const t = (+$('wProduct').value||0)+(+$('wTeam').value||0)+(+$('wVision').value||0);
   $('wTotal').textContent = `Total: ${t}`;
 }
-['wProduct','wTeam','wVision'].forEach(id=>$(id).addEventListener('input',updateWeightTotal));
+['wProduct','wTeam','wVision'].forEach(id=>$(id).addEventListener('input',()=>{updateWeightTotal();saveCurrentDraft();}));
 
 function renderQuestions(){
   const byCat = {product:[],team:[],vision:[]};
@@ -133,7 +172,12 @@ function renderQuestions(){
         const drop = document.getElementById(`drop_${q.id}`);
         drop.addEventListener('change', ()=>{
           document.getElementById(`card_${q.id}`).classList.toggle('flagged', drop.checked);
+          saveCurrentDraft();
         });
+        document.querySelectorAll(`input[name="${q.id}"]`).forEach(el=>el.addEventListener('change', saveCurrentDraft));
+        document.getElementById(`other_${q.id}`).addEventListener('input', saveCurrentDraft);
+        document.querySelectorAll(`input[name="xreason_${q.id}"]`).forEach(el=>el.addEventListener('change', saveCurrentDraft));
+        document.getElementById(`xnote_${q.id}`).addEventListener('input', saveCurrentDraft);
       },0);
     });
     host.appendChild(sec);
@@ -228,6 +272,7 @@ function renderResult(payload, stats){
 $('calc').onclick = ()=>{
   const payload = collect();
   localStorage.setItem('investment-dd-last', JSON.stringify(payload));
+  localStorage.setItem(draftKey(config.id), JSON.stringify(payload));
   const stats = compute(payload);
   renderResult(payload, stats);
   window.scrollTo({top:document.body.scrollHeight, behavior:'smooth'});
@@ -244,25 +289,10 @@ $('save').onclick = ()=>{
 };
 
 $('load').onclick = ()=>{
-  const raw = localStorage.getItem('investment-dd-last');
+  const raw = localStorage.getItem(draftKey(config.id)) || localStorage.getItem('investment-dd-last');
   if(!raw) return alert('No saved response found.');
   const p = JSON.parse(raw);
-  $('wProduct').value = p.weights.product; $('wTeam').value = p.weights.team; $('wVision').value = p.weights.vision; updateWeightTotal();
-
-  for(const a of p.answers || []){
-    const radios = document.querySelectorAll(`input[name='${a.id}']`);
-    for(const r of radios){ if(+r.value===+a.score && r.dataset.label===a.label){ r.checked=true; break; } }
-    const t = document.getElementById('other_'+a.id); if(t) t.value = a.otherText||'';
-  }
-  for(const r of p.replacements || []){
-    const d = document.getElementById('drop_'+r.id); if(d){ d.checked=true; document.getElementById('card_'+r.id).classList.add('flagged'); }
-    for(const reason of (r.reasons||[])){
-      const box = [...document.querySelectorAll(`input[name='xreason_${r.id}']`)].find(x=>x.value===reason);
-      if(box) box.checked=true;
-    }
-    const n = document.getElementById('xnote_'+r.id); if(n) n.value = r.note||'';
-  }
-
+  applyPayloadToUI(p);
   const stats = compute(p); renderResult(p, stats);
 };
 
@@ -270,6 +300,7 @@ function initQuestionnaireMenu(){
   const sel = $('qSelect');
   sel.innerHTML = QUESTIONNAIRES.map(q=>`<option value="${q.path}">${q.label}</option>`).join('');
   $('switchQ').onclick = async ()=>{
+    saveCurrentDraft();
     await loadConfig(sel.value);
     localStorage.setItem('investment-dd-active-config', sel.value);
     window.scrollTo({top:0,behavior:'smooth'});
