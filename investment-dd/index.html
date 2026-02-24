@@ -59,6 +59,17 @@
     <div class="muted">Tip: keep total = 100. If not, score auto-normalizes.</div>
   </div>
 
+  <div class="card" id="profileCard">
+    <h3>Your Investor Profile (helps tune better questions)</h3>
+    <div class="muted">Answer these once. Multiple-choice only. Saved locally in this browser + exportable JSON.</div>
+    <div id="profileQs" style="margin-top:8px"></div>
+    <div class="row" style="margin-top:8px">
+      <button class="btn ghost" id="saveProfile">Save Profile</button>
+      <button class="btn ghost" id="exportProfile">Export Profile JSON</button>
+      <span class="pill" id="profileState">Not saved</span>
+    </div>
+  </div>
+
   <div id="questions" class="card"></div>
 
   <div class="row">
@@ -121,8 +132,66 @@ const replaceReasons = [
   'Too generic', 'Irrelevant to this founder', 'Duplicate/redundant', 'Too vague/unclear', 'Not investment-critical', 'Biased framing'
 ];
 
+const PROFILE_KEY = 'investment-dd-user-profile-v1';
+const profileQuestions = [
+  {id:'U1', text:'Your preferred investment stage?', options:['Pre-seed','Seed','Series A','Series B+','Stage-agnostic']},
+  {id:'U2', text:'Your check style?', options:['High conviction, concentrated','Balanced portfolio','Small exploratory bets','Follow-on heavy','Unsure']},
+  {id:'U3', text:'Primary lens?', options:['Product quality','Team quality','Market timing','Distribution/GTM','Unit economics']},
+  {id:'U4', text:'Risk tolerance?', options:['Very high','High','Medium','Low','Very low']},
+  {id:'U5', text:'Your role preference if you join?', options:['Hands-on product lead','Advisor only','Board-level involvement','Operator+advisor hybrid','No operating role']},
+  {id:'U6', text:'Decision speed?', options:['<24h after call','2-3 days','Within a week','2+ weeks','Depends on co-investors']},
+  {id:'U7', text:'Biggest red flag for you?', options:['Founder rigidity','Weak customer pull','No moat','Poor team dynamics','Messy economics']},
+  {id:'U8', text:'What matters most in first 12 months?', options:['Product adoption','Revenue growth','Retention/expansion','Execution quality','Fundraising momentum']}
+];
+
 function clsFor(n){ return n>=75?'good':n>=55?'med':'bad'; }
 function recFor(n){ return n>=80?'Strong Invest':n>=60?'Watchlist / Conditional':'High Risk / Pass for now'; }
+
+
+function renderProfile(){
+  const host = $('profileQs');
+  host.innerHTML = profileQuestions.map(q=>`
+    <div class="q" style="margin:8px 0">
+      <div class="qhead">${q.id}. ${q.text}</div>
+      ${q.options.map((o,i)=>`<label class="opt"><input type="radio" name="${q.id}" value="${o}"> ${o}</label>`).join('')}
+    </div>
+  `).join('');
+  const raw = localStorage.getItem(PROFILE_KEY);
+  if(raw){
+    const p = JSON.parse(raw);
+    for(const [k,v] of Object.entries(p.answers||{})){
+      const r = document.querySelector(`input[name='${k}'][value="${CSS.escape(v)}"]`);
+      if(r) r.checked = true;
+    }
+    $('profileState').textContent = `Saved: ${p.savedAt?.slice(0,19).replace('T',' ') || 'yes'}`;
+  }
+}
+
+function collectProfile(){
+  const answers = {};
+  for(const q of profileQuestions){
+    const sel = document.querySelector(`input[name='${q.id}']:checked`);
+    if(sel) answers[q.id] = sel.value;
+  }
+  return {version:'v1', savedAt:new Date().toISOString(), answers};
+}
+
+function wireProfileActions(){
+  $('saveProfile').onclick = ()=>{
+    const payload = collectProfile();
+    localStorage.setItem(PROFILE_KEY, JSON.stringify(payload));
+    $('profileState').textContent = `Saved: ${payload.savedAt.slice(0,19).replace('T',' ')}`;
+    alert('Profile saved. I will use this to refine future questionnaires.');
+  };
+  $('exportProfile').onclick = ()=>{
+    const payload = collectProfile();
+    const blob = new Blob([JSON.stringify(payload,null,2)], {type:'application/json'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `investor-profile-${new Date().toISOString().slice(0,19).replace(/[:T]/g,'-')}.json`;
+    a.click(); URL.revokeObjectURL(a.href);
+  };
+}
 
 async function loadConfig(path){
   const r = await fetch(path);
@@ -306,6 +375,9 @@ function initQuestionnaireMenu(){
     window.scrollTo({top:0,behavior:'smooth'});
   };
 }
+
+renderProfile();
+wireProfileActions();
 
 initQuestionnaireMenu();
 const saved = localStorage.getItem('investment-dd-active-config') || QUESTIONNAIRES[0].path;
