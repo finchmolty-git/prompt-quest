@@ -61,7 +61,7 @@
 
   <div class="card" id="profileCard">
     <h3>Your Investor Profile (helps tune better questions)</h3>
-    <div class="muted">Answer these once. Multiple-choice only. Saved locally in this browser + exportable JSON.</div>
+    <div class="muted">Answer these once. All are multiple-choice. Saved locally in this browser + exportable JSON.</div>
     <div id="profileQs" style="margin-top:8px"></div>
     <div class="row" style="margin-top:8px">
       <button class="btn ghost" id="saveProfile">Save Profile</button>
@@ -136,12 +136,18 @@ const PROFILE_KEY = 'investment-dd-user-profile-v1';
 const profileQuestions = [
   {id:'U1', text:'Your preferred investment stage?', options:['Pre-seed','Seed','Series A','Series B+','Stage-agnostic']},
   {id:'U2', text:'Your check style?', options:['High conviction, concentrated','Balanced portfolio','Small exploratory bets','Follow-on heavy','Unsure']},
-  {id:'U3', text:'Primary lens?', options:['Product quality','Team quality','Market timing','Distribution/GTM','Unit economics']},
+  {id:'U3', text:'Primary investment lens?', options:['Product quality','Team quality','Market timing','Distribution/GTM','Unit economics']},
   {id:'U4', text:'Risk tolerance?', options:['Very high','High','Medium','Low','Very low']},
   {id:'U5', text:'Your role preference if you join?', options:['Hands-on product lead','Advisor only','Board-level involvement','Operator+advisor hybrid','No operating role']},
   {id:'U6', text:'Decision speed?', options:['<24h after call','2-3 days','Within a week','2+ weeks','Depends on co-investors']},
   {id:'U7', text:'Biggest red flag for you?', options:['Founder rigidity','Weak customer pull','No moat','Poor team dynamics','Messy economics']},
-  {id:'U8', text:'What matters most in first 12 months?', options:['Product adoption','Revenue growth','Retention/expansion','Execution quality','Fundraising momentum']}
+  {id:'U8', text:'What matters most in first 12 months?', options:['Product adoption','Revenue growth','Retention/expansion','Execution quality','Fundraising momentum']},
+  {id:'U9', text:'Your current primary role background?', options:['Product Management','Founder/Operator','Engineering','Growth/Marketing','Investor only']},
+  {id:'U10', text:'Years of product experience?', options:['0-2 years','3-5 years','6-10 years','11-15 years','15+ years']},
+  {id:'U11', text:'Strongest product domain?', options:['B2B SaaS','Consumer','Marketplace','Developer tools','AI/ML products']},
+  {id:'U12', text:'Product maturity you know best?', options:['0→1 discovery','1→10 scaling','10→100 optimization','Turnaround/rebuild','Multi-product portfolio']},
+  {id:'U13', text:'Where are you strongest in product craft?', options:['Discovery & research','Roadmap/prioritization','Delivery execution','Metrics/experiments','Stakeholder alignment']},
+  {id:'U14', text:'Your preferred working model with founders?', options:['Daily hands-on','Weekly strategic sync','Advisory only','Interim product lead','Depends on stage']}
 ];
 
 function clsFor(n){ return n>=75?'good':n>=55?'med':'bad'; }
