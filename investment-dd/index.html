@@ -130,6 +130,7 @@ function applyPayloadToUI(p){
     }
     const n = document.getElementById('xnote_'+r.id); if(n) n.value = r.note||'';
   }
+  refreshQuestionVisibility();
 }
 
 const replaceReasons = [
@@ -317,13 +318,46 @@ function updateWeightTotal(){
   const t = (+$('wProduct').value||0)+(+$('wTeam').value||0)+(+$('wVision').value||0);
   $('wTotal').textContent = `Total: ${t}`;
 }
+
+
+function hideAnsweredEnabled(){
+  const el = document.getElementById('hideAnsweredToggle');
+  return el ? el.checked : true;
+}
+
+function isAnswered(qid){
+  const hasAnswer = !!document.querySelector(`input[name='${qid}']:checked`);
+  const dropped = document.getElementById(`drop_${qid}`)?.checked;
+  return hasAnswer || !!dropped;
+}
+
+function refreshQuestionVisibility(){
+  if(!config) return;
+  const hide = hideAnsweredEnabled();
+  let remaining = 0;
+  for(const q of config.questions){
+    const card = document.getElementById(`card_${q.id}`);
+    if(!card) continue;
+    const done = isAnswered(q.id);
+    const show = !(hide && done);
+    card.style.display = show ? '' : 'none';
+    if(show) remaining++;
+  }
+  const c = document.getElementById('remainingCount');
+  if(c) c.textContent = String(remaining);
+}
 ['wProduct','wTeam','wVision'].forEach(id=>$(id).addEventListener('input',()=>{updateWeightTotal();saveCurrentDraft();}));
 
 function renderQuestions(){
   const byCat = {product:[],team:[],vision:[]};
   config.questions.forEach(q=>byCat[q.category].push(q));
   const host = $('questions');
-  host.innerHTML = '<h2>Questionnaire</h2><div class="muted">Use ✕ Replace on weak questions and select why (multi-select). Those are excluded from scoring and listed for replacement.</div>';
+  host.innerHTML = '<h2>Questionnaire</h2><div class="muted">Use ✕ Replace on weak questions and select why (multi-select). Those are excluded from scoring and listed for replacement.</div><div class="row" style="margin-top:8px"><label class="pill"><input type="checkbox" id="hideAnsweredToggle" checked> Hide answered questions</label><span class="pill">Remaining: <span id="remainingCount">0</span></span></div>';
+
+  const ht = document.getElementById('hideAnsweredToggle');
+  const savedHide = localStorage.getItem('investment-dd-hide-answered');
+  if(savedHide !== null) ht.checked = savedHide === '1';
+  ht.addEventListener('change', ()=>{ localStorage.setItem('investment-dd-hide-answered', ht.checked ? '1':'0'); refreshQuestionVisibility(); });
 
   ['product','team','vision'].forEach(cat=>{
     const sec = document.createElement('div');
@@ -332,6 +366,7 @@ function renderQuestions(){
       const d = document.createElement('div');
       d.className='q';
       d.id = `card_${q.id}`;
+      d.dataset.qid = q.id;
       const reasonChips = replaceReasons.map((r,i)=>`<label class="chip"><input type="checkbox" name="xreason_${q.id}" value="${r}"> ${r}</label>`).join('');
       d.innerHTML = `<div class="qhead">${q.id}. ${q.text}</div>
         ${q.options.map((o)=>`<label class="opt"><input type="radio" name="${q.id}" value="${o.score}" data-label="${escapeHtml(o.label)}"> ${o.label}</label>`).join('')}
@@ -350,8 +385,9 @@ function renderQuestions(){
         drop.addEventListener('change', ()=>{
           document.getElementById(`card_${q.id}`).classList.toggle('flagged', drop.checked);
           saveCurrentDraft();
+          refreshQuestionVisibility();
         });
-        document.querySelectorAll(`input[name="${q.id}"]`).forEach(el=>el.addEventListener('change', saveCurrentDraft));
+        document.querySelectorAll(`input[name="${q.id}"]`).forEach(el=>el.addEventListener('change', ()=>{saveCurrentDraft(); refreshQuestionVisibility();}));
         document.getElementById(`other_${q.id}`).addEventListener('input', saveCurrentDraft);
         document.querySelectorAll(`input[name="xreason_${q.id}"]`).forEach(el=>el.addEventListener('change', saveCurrentDraft));
         document.getElementById(`xnote_${q.id}`).addEventListener('input', saveCurrentDraft);
@@ -359,6 +395,7 @@ function renderQuestions(){
     });
     host.appendChild(sec);
   });
+  refreshQuestionVisibility();
 }
 
 function escapeHtml(s){return s.replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#039;"}[m]));}
